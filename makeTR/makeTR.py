@@ -46,15 +46,6 @@ class TimingDataParser:
         """
         self.file_path = file_path
 
-class TimingDataParser:
-    def __init__(self, file_path):
-        """
-        Initialize the TimingDataParser with a file path.
-
-        :param file_path: The path to the timing data file.
-        """
-        self.file_path = file_path
-
     def parse_timing_data(self):
         """
         Parse the timing data from the file and extract the start and end times for each verse.
@@ -98,8 +89,27 @@ class TimingDataParser:
                     timing_data[current_verse] = (start_time, float(etime))
         return timing_data
 
-# Example usage:
+class ProjectFolder:
+    def __init__(self, file_path):
+        """
+        Initialize the ProjectFolder with a file path.
 
+        :param file_path: Where the project will be written
+        """
+        self.file_path = file_path
+    
+    def ProjectFolderSetup(self):
+        # BTTR project is set up in this way:
+        #   language_code/project_type/book_code/chapter
+        # so e.g.
+        #   zh/ulb/mat/01
+        # or
+        #   en/reg/phi/04
+        if not os.path.exists(self.file_path):
+            os.makedirs(self.file_path)
+        
+
+# Establish arguments
 ap = argparse.ArgumentParser(description='Make TR project from a directory of MP3 files and a directory of timing files')
 ap.add_argument('input_file1', type=str, help='Directory containing timing files')
 ap.add_argument('input_file2', type=str, help='Directory containing MP3 files')
@@ -107,12 +117,18 @@ ap.add_argument('-o', '--output_file', type=str, nargs='?', help='Directory to r
 ap.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
 args = ap.parse_args()
 
-print(f"We'll be getting our timing files from {args.input_file1}")
-print(f"The MP3 files are in {args.input_file2}")
+timing_dir = args.input_file1
+mp3_dir = args.input_file2
+output_dir = args.output_file
+print(f"We'll be getting our timing files from {timing_dir}")
+print(f"The MP3 files are in {mp3_dir}")
 if args.verbose:
     print('Verbose mode enabled')
-if args.output_file is None:
+if output_dir is None:
     print("We'll be putting the output in this directory, since a destination was not provided. This will be a new folder with the correct name.")
+    output_dir = os.getcwd()
+
+# Example usage:
 
 scanner = DirectoryScanner(DEFAULT_DIR+TIMING_DIR)
 try:
