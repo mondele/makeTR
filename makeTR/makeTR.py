@@ -105,12 +105,16 @@ class ProjectFolder:
         #   zh/ulb/mat/01
         # or
         #   en/reg/phi/04
+
+        print(f"\nProject will go in {self.file_path}")
+
         if not os.path.exists(self.file_path):
             os.makedirs(self.file_path)
         
 
 # Establish arguments
 ap = argparse.ArgumentParser(description='Make TR project from a directory of MP3 files and a directory of timing files')
+ap.add_argument('lang_code', type=str, help='Language code for project')
 ap.add_argument('input_file1', type=str, help='Directory containing timing files')
 ap.add_argument('input_file2', type=str, help='Directory containing MP3 files')
 ap.add_argument('-o', '--output_file', type=str, nargs='?', help='Directory to receive the project')
@@ -125,8 +129,10 @@ print(f"The MP3 files are in {mp3_dir}")
 if args.verbose:
     print('Verbose mode enabled')
 if output_dir is None:
-    print("We'll be putting the output in this directory, since a destination was not provided. This will be a new folder with the correct name.")
     output_dir = os.getcwd()
+    print("We'll be putting the output in {output_dir}, since a destination was not provided. This will be a new folder with the correct name.")
+
+language_code = args.lang_code
 
 # Example usage:
 
@@ -144,5 +150,10 @@ try:
     print(f"Chapter: {timing_data.chapter}")
     print(td)
     print('++++++++++++++++++++')
+    targetPath = f"{output_dir}/{language_code}/reg/{timing_data.id}/{timing_data.chapter}"
+    targetFolder = ProjectFolder(targetPath)
+
+    tempVar = targetFolder.ProjectFolderSetup()
+
 except DirectoryScannerError as e:
     print(e.message)
