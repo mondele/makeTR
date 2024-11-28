@@ -67,7 +67,16 @@ class TimingDataParser:
         with open(self.file_path, 'r') as file:
             for line in file:
                 parts = line.strip().split()
-                if len(parts) == 3:
+                if len(parts) == 2: # Two parts means book metadata
+                    tag, value = parts # USFM tag and its value
+                    tag = tag.strip("\\")
+                    match tag:
+                        case "id":
+                            self.id = value
+                        case "c":
+                            self.chapter = value
+                    
+                if len(parts) == 3: # Three part line means timing data
                     ftime, etime, verse = parts
                     verse_number = ""
                     verse_part = ""
@@ -86,8 +95,7 @@ class TimingDataParser:
                         start_time = float(ftime)
                     else:
                         end_time = float(etime)
-        if current_verse is not None:
-            timing_data[current_verse] = (start_time, end_time)
+                    timing_data[current_verse] = (start_time, float(etime))
         return timing_data
 
 # Example usage:
@@ -116,6 +124,8 @@ try:
     print('Trying to get timing data from '+files[0])
     timing_data = TimingDataParser(files[0])
     td = timing_data.parse_timing_data()
+    print(f"Book: {timing_data.id}")
+    print(f"Chapter: {timing_data.chapter}")
     print(td)
     print('++++++++++++++++++++')
 except DirectoryScannerError as e:
