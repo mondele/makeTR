@@ -195,7 +195,7 @@ try:
             # Sample audio filename: zha-x-chineseoralversion_reg_b41_mat_c01_v01_t01.wav
             output_file = f"{targetPath}/{language_code}_reg_b{book_number}_{timing_data.id}_c{timing_data.chapter.zfill(2)}_v{verse.zfill(2)}_t01.wav"
 
-            ffmpeg_command = ['ffmpeg', '-i', audio_file, '-ss', str(start_time), '-t', str(end_time), '-c', 'copy', '-n', output_file]
+            ffmpeg_command = ['ffmpeg', '-i', audio_file, '-ss', str(start_time), '-to', str(end_time), '-c', 'copy', '-n', output_file]
             subprocess.run(ffmpeg_command)
 
 # ffmpeg -i input.mp3 -ss 00:01:23.456 -t 00:00:10.500 -c copy output.wav
