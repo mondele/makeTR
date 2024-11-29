@@ -184,16 +184,15 @@ try:
         audio_scanner.scan()
         audio_files = audio_scanner.get_files()
         audio_file = find_file_name(audio_files, timing_data.chapter)
-        print(f"{audio_file}")
 
         tempVar = targetFolder.ProjectFolderSetup()
 
         for verse in td:
             start_time, end_time = td[verse]
             verse = verse.zfill(2)
-            audio_file = "placeholder"
             output_file = f"{targetPath}/{verse}.wav"
             ffmpeg_command = ['ffmpeg', '-i', audio_file, '-ss', start_time, '-t', end_time, '-c', 'copy', output_file]
+            subprocess.run(ffmpeg_command)
 
 # ffmpeg -i input.mp3 -ss 00:01:23.456 -t 00:00:10.500 -c copy output.wav
 
