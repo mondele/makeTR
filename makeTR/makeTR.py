@@ -7,6 +7,7 @@ Created on Wed 15 Jun 2022 02:56:09 PM EDT
 """
 
 import argparse, os
+import subprocess, regex
 
 DEFAULT_DIR = '/home/jdwood/Documents/Work/WA/Conversion/Doug_Schreiber/'
 TIMING_DIR = 'COV_NT_timing'
@@ -28,6 +29,8 @@ class DirectoryScanner:
             for filename in os.listdir(self.directory):
                 filepath = os.path.join(self.directory, filename)
                 if os.path.isfile(filepath):
+                    self.files.append(filepath)
+                elif os.path.isdir(filepath):
                     self.files.append(filepath)
         except FileNotFoundError:
             raise DirectoryScannerError(f"Error: Directory '{self.directory}' not found.")
@@ -56,37 +59,40 @@ class TimingDataParser:
         current_verse = None
         start_time = None
         with open(self.file_path, 'r') as file:
-            for line in file:
-                parts = line.strip().split()
-                if len(parts) == 2: # Two parts means book metadata
-                    tag, value = parts # USFM tag and its value
-                    tag = tag.strip("\\")
-                    match tag:
-                        case "id":
-                            self.id = value
-                        case "c":
-                            self.chapter = value
-                    
-                if len(parts) == 3: # Three part line means timing data
-                    ftime, etime, verse = parts
-                    verse_number = ""
-                    verse_part = ""
-                    for char in range(len(verse)):
-                        if verse[char].isdigit():
-                            verse_number = verse_number + str(verse[char])
-                        elif verse[char].isalpha():
-                            verse_part = verse[char]
-                    if verse_number!= current_verse:
-                        if current_verse is None:
-                            current_verse = verse_number
+            try:
+                for line in file:
+                    parts = line.strip().split()
+                    if len(parts) == 2: # Two parts means book metadata
+                        tag, value = parts # USFM tag and its value
+                        tag = tag.strip("\\")
+                        match tag:
+                            case "id":
+                                self.id = value
+                            case "c":
+                                self.chapter = value
+                        
+                    if len(parts) == 3: # Three part line means timing data
+                        ftime, etime, verse = parts
+                        verse_number = ""
+                        verse_part = ""
+                        for char in range(len(verse)):
+                            if verse[char].isdigit():
+                                verse_number = verse_number + str(verse[char])
+                            elif verse[char].isalpha():
+                                verse_part = verse[char]
+                        if verse_number!= current_verse:
+                            if current_verse is None:
+                                current_verse = verse_number
+                                start_time = float(ftime)
+                            elif current_verse is not None:
+                                timing_data[current_verse] = (start_time, float(ftime))
+                                current_verse = verse_number
                             start_time = float(ftime)
-                        elif current_verse is not None:
-                            timing_data[current_verse] = (start_time, float(ftime))
-                            current_verse = verse_number
-                        start_time = float(ftime)
-                    else:
-                        end_time = float(etime)
-                    timing_data[current_verse] = (start_time, float(etime))
+                        else:
+                            end_time = float(etime)
+                        timing_data[current_verse] = (start_time, float(etime))
+            except Exception as e:
+                print(f"Error parsing timing data: {e}")
         return timing_data
 
 class ProjectFolder:
@@ -110,19 +116,27 @@ class ProjectFolder:
 
         if not os.path.exists(self.file_path):
             os.makedirs(self.file_path)
+
+def find_file_name(file_names, number):
+    pattern = r'(?:^|-)(\d\d)'
+    for file_name in file_names:
+        match = regex.search(pattern, os.path.basename(file_name))
+        if match and match.group(1) == number:
+            return file_name
+    return None
         
 
 # Establish arguments
 ap = argparse.ArgumentParser(description='Make TR project from a directory of MP3 files and a directory of timing files')
-ap.add_argument('lang_code', type=str, help='Language code for project')
-ap.add_argument('input_file1', type=str, help='Directory containing timing files')
-ap.add_argument('input_file2', type=str, help='Directory containing MP3 files')
+ap.add_argument('-l', '--language_code', type=str, help='Language code for project')
+ap.add_argument('-t', '--timing_file', type=str, help='Directory containing timing files')
+ap.add_argument('-m', '--mp3_file', type=str, help='Directory containing MP3 files')
 ap.add_argument('-o', '--output_file', type=str, nargs='?', help='Directory to receive the project')
 ap.add_argument('-v', '--verbose', action='store_true', help='verbose mode')
 args = ap.parse_args()
 
-timing_dir = args.input_file1
-mp3_dir = args.input_file2
+timing_dir = args.timing_file
+mp3_dir = args.mp3_file
 output_dir = args.output_file
 print(f"We'll be getting our timing files from {timing_dir}")
 print(f"The MP3 files are in {mp3_dir}")
@@ -130,9 +144,9 @@ if args.verbose:
     print('Verbose mode enabled')
 if output_dir is None:
     output_dir = os.getcwd()
-    print("We'll be putting the output in {output_dir}, since a destination was not provided. This will be a new folder with the correct name.")
+    print(f"We'll be putting the output in {output_dir}, since a destination was not provided. This will be a new folder with the correct name.")
 
-language_code = args.lang_code
+language_code = args.language_code
 
 # Example usage:
 
@@ -140,20 +154,48 @@ scanner = DirectoryScanner(DEFAULT_DIR+TIMING_DIR)
 try:
     scanner.scan()
     files = scanner.get_files()
-    print(files)
-    print('==================')
-#    for file in files:
-    print('Trying to get timing data from '+files[0])
-    timing_data = TimingDataParser(files[0])
-    td = timing_data.parse_timing_data()
-    print(f"Book: {timing_data.id}")
-    print(f"Chapter: {timing_data.chapter}")
-    print(td)
-    print('++++++++++++++++++++')
-    targetPath = f"{output_dir}/{language_code}/reg/{timing_data.id}/{timing_data.chapter}"
-    targetFolder = ProjectFolder(targetPath)
+    for file in files:
+        timing_data = TimingDataParser(file)
+        td = timing_data.parse_timing_data()
 
-    tempVar = targetFolder.ProjectFolderSetup()
+        file_path = file
+        base_filename = os.path.splitext(os.path.basename(file_path))[0]
+        book_number = base_filename.split("-")[1]
+
+        # book_number can be used to find the correct mp3 file later
+
+        print(file)
+        print(f"Book Number: {book_number}")
+        print(f"Book: {timing_data.id}")
+        print(f"Chapter: {timing_data.chapter}")
+        print(f"There are {len(td)} verses in this chapter")
+
+        targetPath = f"{output_dir}/{language_code}/reg/{timing_data.id}/{timing_data.chapter.zfill(2)}"
+        targetFolder = ProjectFolder(targetPath)
+
+        # find the audio for this book and chapter
+        dir_scanner = DirectoryScanner(mp3_dir)
+        dir_scanner.scan()
+        directories = dir_scanner.get_files()
+        mp3_folder = find_file_name(directories, book_number)
+
+        # found the book, now find the chapter.
+        audio_scanner = DirectoryScanner(mp3_folder)
+        audio_scanner.scan()
+        audio_files = audio_scanner.get_files()
+        audio_file = find_file_name(audio_files, timing_data.chapter)
+        print(f"{audio_file}")
+
+        tempVar = targetFolder.ProjectFolderSetup()
+
+        for verse in td:
+            start_time, end_time = td[verse]
+            verse = verse.zfill(2)
+            audio_file = "placeholder"
+            output_file = f"{targetPath}/{verse}.wav"
+            ffmpeg_command = ['ffmpeg', '-i', audio_file, '-ss', start_time, '-t', end_time, '-c', 'copy', output_file]
+
+# ffmpeg -i input.mp3 -ss 00:01:23.456 -t 00:00:10.500 -c copy output.wav
 
 except DirectoryScannerError as e:
     print(e.message)
