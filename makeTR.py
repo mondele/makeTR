@@ -121,7 +121,7 @@ def find_file_name(file_names, number):
     pattern = r'(?:^|-)(\d\d)'
     for file_name in file_names:
         match = regex.search(pattern, os.path.basename(file_name))
-        if match and match.group(1) == number:
+        if match and match.group(1).isnumeric:
             return file_name
     return None
         
@@ -183,7 +183,9 @@ try:
         audio_scanner = DirectoryScanner(mp3_folder)
         audio_scanner.scan()
         audio_files = audio_scanner.get_files()
+        print(f"We'll try to get chapter {timing_data.chapter}")
         audio_file = find_file_name(audio_files, timing_data.chapter)
+        print(audio_file)
 
         tempVar = targetFolder.ProjectFolderSetup()
 
@@ -191,7 +193,10 @@ try:
             start_time, end_time = td[verse]
             verse = verse.zfill(2)
             output_file = f"{targetPath}/{verse}.wav"
-            ffmpeg_command = ['ffmpeg', '-i', audio_file, '-ss', start_time, '-t', end_time, '-c', 'copy', output_file]
+
+            print(f"{audio_file}, Audio_File is {type(audio_file)}.\n{start_time}, Start_Time is {type(start_time)}")
+
+            ffmpeg_command = ['ffmpeg', '-i', audio_file, '-ss', str(start_time), '-t', str(end_time), '-c', 'copy', '-n', output_file]
             subprocess.run(ffmpeg_command)
 
 # ffmpeg -i input.mp3 -ss 00:01:23.456 -t 00:00:10.500 -c copy output.wav
