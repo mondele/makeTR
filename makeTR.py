@@ -192,9 +192,8 @@ try:
         for verse in td:
             start_time, end_time = td[verse]
             verse = verse.zfill(2)
-            output_file = f"{targetPath}/{verse}.wav"
-
-            print(f"{audio_file}, Audio_File is {type(audio_file)}.\n{start_time}, Start_Time is {type(start_time)}")
+            # Sample audio filename: zha-x-chineseoralversion_reg_b41_mat_c01_v01_t01.wav
+            output_file = f"{targetPath}/{language_code}_reg_b{book_number}_{timing_data.id}_c{timing_data.chapter.zfill(2)}_v{verse.zfill(2)}_t01.wav"
 
             ffmpeg_command = ['ffmpeg', '-i', audio_file, '-ss', str(start_time), '-t', str(end_time), '-c', 'copy', '-n', output_file]
             subprocess.run(ffmpeg_command)
