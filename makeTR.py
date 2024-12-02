@@ -9,10 +9,6 @@ Created on Wed 15 Jun 2022 02:56:09 PM EDT
 import argparse, os
 import subprocess, regex
 
-DEFAULT_DIR = '/home/jdwood/Documents/Work/WA/Conversion/Doug_Schreiber/'
-TIMING_DIR = 'COV_NT_timing'
-AUDIO_DIR = 'COV_Audio'
-
 class DirectoryScannerError(Exception):
     def __init__(self, message):
         self.message = message
@@ -111,8 +107,8 @@ class ProjectFolder:
         #   zh/ulb/mat/01
         # or
         #   en/reg/phi/04
-
-        print(f"\nProject will go in {self.file_path}")
+        if args.verbose:
+            print(f"\nProject will go in {self.file_path}")
 
         if not os.path.exists(self.file_path):
             os.makedirs(self.file_path)
@@ -138,65 +134,90 @@ args = ap.parse_args()
 timing_dir = args.timing_file
 mp3_dir = args.mp3_file
 output_dir = args.output_file
-print(f"We'll be getting our timing files from {timing_dir}")
-print(f"The MP3 files are in {mp3_dir}")
 if args.verbose:
     print('Verbose mode enabled')
+
+if args.verbose:
+    print(f"We'll be getting our timing files from {timing_dir}")
+    print(f"The MP3 files are in {mp3_dir}")
 if output_dir is None:
     output_dir = os.getcwd()
     print(f"We'll be putting the output in {output_dir}, since a destination was not provided. This will be a new folder with the correct name.")
 
-language_code = args.language_code
+language_code = args.language_code.lower()
 
 # Example usage:
 
-scanner = DirectoryScanner(DEFAULT_DIR+TIMING_DIR)
+scanner = DirectoryScanner(args.timing_file)
 try:
     scanner.scan()
     files = scanner.get_files()
+    # files is a list of timing files
     for file in files:
+        # We'll extract the book number, name, and chapter number from the filename of the timing file.
+        base_filename = os.path.splitext(os.path.basename(file))[0]
+        book_number, book_name, chapter_number = base_filename.split("-")[1:4]
+        book_name = book_name.lower()
+        # each book will have as many timing files as it has chapters.
         timing_data = TimingDataParser(file)
+        # the parser will go through the file line by line to find out the timing for each verse in that chapter
         td = timing_data.parse_timing_data()
+        # td is the parsed timing data for this particular chapter
+        if book_name == timing_data.id.lower() and chapter_number == timing_data.chapter.zfill(2):
+            print(f"Book name and chapter match from filename to metadata") if args.verbose else None
+        else:
+            print("The book name and / or chapter don't match from filename to metadata")
+            print(f"Book name is {book_name} vs. {timing_data.id}")
+            print(f"Chapter is {chapter_number} vs. {timing_data.chapter}")
 
-        file_path = file
-        base_filename = os.path.splitext(os.path.basename(file_path))[0]
-        book_number = base_filename.split("-")[1]
+        if args.verbose:
+            print(file)
+            print(f"Book Number: {book_number}")
+            print(f"Book: {timing_data.id}")
+            print(f"Chapter: {timing_data.chapter}")
+            print(f"There are {len(td)} verses in this chapter")
 
-        # book_number can be used to find the correct mp3 file later
-
-        print(file)
-        print(f"Book Number: {book_number}")
-        print(f"Book: {timing_data.id}")
-        print(f"Chapter: {timing_data.chapter}")
-        print(f"There are {len(td)} verses in this chapter")
-
-        targetPath = f"{output_dir}/{language_code}/reg/{timing_data.id}/{timing_data.chapter.zfill(2)}"
+        targetPath = f"{output_dir}/{language_code}/reg/{book_name}/{chapter_number}"
         targetFolder = ProjectFolder(targetPath)
 
         # find the audio for this book and chapter
         dir_scanner = DirectoryScanner(mp3_dir)
         dir_scanner.scan()
         directories = dir_scanner.get_files()
-        mp3_folder = find_file_name(directories, book_number)
 
-        # found the book, now find the chapter.
-        audio_scanner = DirectoryScanner(mp3_folder)
-        audio_scanner.scan()
-        audio_files = audio_scanner.get_files()
-        print(f"We'll try to get chapter {timing_data.chapter}")
-        audio_file = find_file_name(audio_files, timing_data.chapter)
-        print(audio_file)
+        for book_folder in directories:
+            if os.path.basename(book_folder).startswith(str(book_number)):
+                book_number = str(int(book_number)+40)
+                chapter_files = os.listdir(book_folder)
+                for chapter_file in chapter_files:
+                    chapter_filename = os.path.splitext(os.path.basename(chapter_file))[0]
+                    if chapter_filename.endswith(f"-{chapter_number}"):
+                        # match found
+                        audio_file = f"{book_folder}/{chapter_file}"
+                        tempVar = targetFolder.ProjectFolderSetup()
 
-        tempVar = targetFolder.ProjectFolderSetup()
+                        if audio_file is not None:
+                            for verse in td:
+                                start_time, end_time = td[verse]
+                                verse = verse.zfill(2)
+                                # Sample audio filename: zha-x-chineseoralversion_reg_b41_mat_c01_v01_t01.wav
 
-        for verse in td:
-            start_time, end_time = td[verse]
-            verse = verse.zfill(2)
-            # Sample audio filename: zha-x-chineseoralversion_reg_b41_mat_c01_v01_t01.wav
-            output_file = f"{targetPath}/{language_code}_reg_b{book_number}_{timing_data.id}_c{timing_data.chapter.zfill(2)}_v{verse.zfill(2)}_t01.wav"
-
-            ffmpeg_command = ['ffmpeg', '-i', audio_file, '-ss', str(start_time), '-to', str(end_time), '-c', 'copy', '-n', output_file]
-            subprocess.run(ffmpeg_command)
+                                output_file = f"{targetPath}/{language_code}_reg_b{book_number}_{book_name}_c{chapter_number}_v{verse}_t01.wav"
+                            # print(f"Writing from {audio_file} to {output_file} for verse number {verse}")
+                                if not os.path.exists(output_file):
+                                    if start_time < end_time:
+                                        try:
+                                            ffmpeg_command = ['ffmpeg', '-i', audio_file, '-ss', str(start_time), '-to', str(end_time), '-loglevel', 'panic', '-c', 'copy', '-n', output_file]
+                                            result = subprocess.run(ffmpeg_command, capture_output=True)
+                                            if result.returncode!=0:
+                                                print(f"Error executing ffmpeg command\n\t{ffmpeg_command}\n\t\t: {result.stderr.decode()}")
+                                        except subprocess.CalledProcessError as e:
+                                            print(f"Error executing ffmpeg command\n\t{ffmpeg_command}\n\t\t: {e}")
+                                    else:
+                                        print(f"Start time: {start_time} and end time: {end_time} do not increment properly.")
+                                else: print(f"{output_file} already exists.")
+                        else:
+                            print(f"Error: Could not find audio file for book {book_number} chapter {chapter_number}")
 
 # ffmpeg -i input.mp3 -ss 00:01:23.456 -t 00:00:10.500 -c copy output.wav
 
