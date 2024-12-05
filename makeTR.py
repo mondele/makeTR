@@ -13,6 +13,9 @@ from unittest.mock import patch, MagicMock
 from your_module import DirectoryScanner, TimingDataParser, ProjectFolder
 
 class TestDirectoryScanner(unittest.TestCase):
+    """
+    This class is for testing the DirectoryScanner class
+    """
     def test_scan_directory(self):
         # Create a mock directory with some files
         mock_dir = MagicMock()
@@ -38,6 +41,9 @@ class TestDirectoryScanner(unittest.TestCase):
             scanner.scan()
 
 class TestTimingDataParser(unittest.TestCase):
+    """
+    This class is for testing the TimingDataParser class
+    """
     def test_parse_timing_data(self):
         # Create a mock file with some timing data
         mock_file = MagicMock()
@@ -278,9 +284,9 @@ def main():
                                 for verse in td:
                                     start_time, end_time = td[verse]
                                     verse = verse.zfill(2)
-                                    # Sample audio filename: zha-x-chineseoralversion_reg_b41_mat_c01_v01_t01.wav
+                                    # Sample audio filename: zha-x-chineseoralversion_reg_b41_mat_c01_v01_t01.mp3
 
-                                    output_file = f"{targetPath}/{language_code}_reg_b{book_number}_{book_name}_c{chapter_number}_v{verse}_t01.wav"
+                                    output_file = f"{targetPath}/{language_code}_reg_b{book_number}_{book_name}_c{chapter_number}_v{verse}_t01.mp3"
                                 # print(f"Writing from {audio_file} to {output_file} for verse number {verse}")
                                     if not os.path.exists(output_file):
                                         if start_time < end_time:
@@ -297,7 +303,7 @@ def main():
                             else:
                                 print(f"Error: Could not find audio file for book {book_number} chapter {chapter_number}")
 
-    # ffmpeg -i input.mp3 -ss 00:01:23.456 -t 00:00:10.500 -c copy output.wav
+    # ffmpeg -i input.mp3 -ss 00:01:23.456 -t 00:00:10.500 -c copy output.mp3
 
     except DirectoryScannerError as e:
         print(e.message)
